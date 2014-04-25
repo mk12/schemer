@@ -710,3 +710,191 @@
 (run* (r) (== 'b r) (surpriseo r)) ; => (b)
 
 ;;;;; Chapter 5: Double Your Fun
+
+(define append
+  (lambda (l s)
+    (cond
+      ((null? l) s)
+      (else (cons (car l)
+                  (append (cdr l) s))))))
+
+(define appendo
+  (lambda (l s out)
+    (conde
+      ((nullo l) (== s out))
+      (else
+        (fresh (a d res)
+          (conso a d l)
+          (appendo d s res)
+          (conso a res out))))))
+
+(run* (x) (appendo '(cake) '(tastes yummy) x)) ; => ((cake tastes yummy))
+
+(run* (x)
+  (fresh (y)
+    (appendo `(cake with ice ,y)
+             '(tastes yummy)
+             x)))
+;; => ((cake with ice _0 tastes yummy))
+
+(run* (x)
+  (fresh (y)
+    (appendo '(cake with ice cream) y x)))
+;; => ((cake with ice cream . _0))
+
+(run1 (x)
+  (fresh (y)
+    (appendo `(cake with ice . ,y) '(d t) x)))
+;; => ((cake with ice d t))
+
+(run3 (x)
+  (fresh (y)
+    (appendo `(cake with ice . ,y) '(d t) x)))
+;; => ((cake with ice d t) (cake with ice _0 d t) (cake with ice _0 _1 d t))
+j
+(run5 (y)
+  (fresh (x)
+    (appendo `(cake with ice . ,y) '(d t) x)))
+;; => (() (_0) (_0 _1) (_0 _1 _2) (_0 _1 _2 _3))
+
+(run2 (x)
+  (fresh (y)
+    (appendo `(cake with ice . ,y)
+             `(d t . y)
+             x)))
+;; => ((cake with ice d t) (cake with ice _0 d t _0))
+
+(run* (x)
+  (fresh (z)
+    (appendo '(cake with ice cream)
+             `(d t . ,z)
+             x)))
+;; => ((cake with ice cream d t))
+
+(run5 (x)
+  (fresh (y)
+    (appendo x y '(cake with ice d t))))
+;; => (() (cake) (cake with) (cake with ice) (cake with ice d))
+
+(run6 (y)
+  (fresh (x)
+    (appendo x y '(cake iwth ice d t))))
+;; => ((cake with ice d t) (with ice d t) (ice dt) (d t) (t) ())
+
+(run6 (r)
+  (fresh (x y)
+    (appendo x y '(cake with ice d t))
+    (== (list x y) r)))
+;; => ((() (cake with ice d t))
+;;     ((cake) (with ice d t))
+;;     ((cake with) (ice d t))
+;;     ((cake with ice) (d t))
+;;     ((cake with ice d) (t))
+;;     ((cake with ice d t) ()))
+
+;; run7 the above => no value
+
+(define appendo
+  (lambda (l s out)
+    (conde
+      ((nullo l) (== s out))
+      (else
+        (fresh (a d res)
+          (conso a d l)
+          (conso a res out)
+          (appendo d s res))))))
+
+;; now, run7 the above => same as run6
+
+(run4 (x) (fresh (y z) (appendo x y z))) ; => (() (_0) (_0 _1) (_0 _1 _2))
+(run7 (y) (fresh (x z) (appendo x y z))) ; => (_0 _0 _0 _0 _0 _0 _0)
+(run3 (z) (fresh (x y) (appendo x y z))) ; => (_0 (_0 . _1) (_0 _1 . _2))
+
+(run4 (r)
+  (fresh (x y z)
+    (appendo x y z)
+    (== (list x y z) r)))
+;; => ((() _0 _0)
+;;     ((_0) _1 (_0 . _1))
+;;     ((_0 _1) _2 (_0 _1 . _2))
+;;     ((_0 _1) _3 (_0 _1 _2 . _3)))
+
+(define swappendo
+  (lambda (l s out)
+    (conde
+      (#s (fresh (a d res)
+            (conso a d l)
+            (conso a res out)
+            (swappendo d s res)))
+      (else (nullo l) (== s out)))))
+
+(run1 (z) (fresh (x y) (swappendo x y z))) ; => no value
+
+(define unwrap
+  (lambda (x)
+    (cond
+      ((pair? x) (unwrap (car x)))
+      (else x))))
+
+(define unwrapo
+  (lambda (x out)
+    (conde
+      ((pairo x)
+       (fresh (a)
+         (cdro x a)
+         (unwrapo a out)))
+      (else (== x out)))))
+
+(run* (x) (unwrapo '(((pizza))) x)) ; => (pizza (pizza) ((pizza)) (((pizza))))
+(run1 (x) (unwrapo x 'pizza))       ; => no value
+(run1 (x) (unwrapo `((,x)) 'pizza)) ; => no value
+
+(define unwrapo
+  (lambda (x out)
+    (conde
+      (#s (== x out))
+      (else
+        (fresh (a)
+          (caro x a)
+          (unwrapo a out))))))
+
+(run3 (x) (unwrapo x 'pizza)) ; => (pizza (pizza . _0) ((pizza . _0) . _1))
+
+(define flatten
+  (lambda (s)
+    (cond
+      ((null? s) '())
+      ((pair? s)
+       (append (flatten (car s))
+               (flatten (cdr s))))
+      (else (cons s '())))))
+
+(define flatteno
+  (lambda (s out)
+    (conde
+      ((nullo s) (== '() out))
+      ((pairo s)
+       (fresh (a d fa fd)
+         (conso a d s)
+         (flatteno a fa)
+         (flatteno d fd)
+         (appendo fa fd out)))
+      (else (conso s '() out)))))
+
+(run1 (x) (flatteno '((a b) c) x)) ; => ((a b c))
+(run1 (x) (flatteno '(a (b c)) x)) ; => ((a b c))
+(run* (x) (flatteno '(a) x))       ; => ((a) (a ()) ((a)))
+
+(define flattenrevo
+  (lambda (s out)
+    (conde
+      (#s (conso s '() out))
+      ((nullo s) (== '() out))
+      (else
+       (fresh (a d fa fd)
+         (conso a d s)
+         (flatteno a fa)
+         (flatteno d fd)
+         (appendo fa fd out))))))
+
+;;;;; Chapter 6: The Fun Never Ends...
