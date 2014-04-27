@@ -898,3 +898,907 @@ j
          (appendo fa fd out))))))
 
 ;;;;; Chapter 6: The Fun Never Ends...
+
+(define anyo
+  (lambda (g)
+    (conde
+      (g #s)
+      (else (anyo g)))))
+
+(define nevero (anyo #u))
+
+(run1 (q) nevero (== #t q)) ; => no value
+(run1 (q) #u nevero)        ; => ()
+
+(define alwayso (anyo #s))
+
+(run1 (q) alwayso (== #t q)) ; => (#t)
+(run* (q) alwayso (== #t q)) ; => no value
+(run5 (q) alwayso (== #t q)) ; => (#t #t #t #t #t)
+
+;; succeed at least once
+(define salo
+  (lambda (g)
+    (conde
+      (#s #s)
+      (else g))))
+
+(run1 (q) (salo alwayso) (== #t q)) ; => (#t)
+(run1 (q) (salo nevero) (== #t q))  ; => (#t)
+(run* (q) (salo nevero) (== #t q))  ; => no value
+(run1 (q) alwayso #u (== #t q))     ; => no value
+
+(run1 (q)
+  (conde
+    ((== #f q) alwayso)
+    (else (anyo (== #t q))))
+  (== #t q))
+;; => no value
+
+;;; condi is like conde, but interleaved
+
+(run1 (q)
+  (condi
+    ((== #f q) alwayso)
+    (else (== #t q)))
+  (== #t q))
+;; => (#t)
+
+(run2 (q)
+  (condi
+    ((== #f q) alwayso)
+    (else (== #t q)))
+  (== #t q))
+;; => no value
+
+(run5 (q)
+  (condi
+    ((== #f q) alwayso)
+    (else (anyo (== #t q))))
+  (== #t q))
+;; => (#t #t #t #t #t)
+
+(run5 (r)
+  (condi
+    ((teacupo r) #s)
+    ((== #f r) #s)
+    (else #u)))
+;; => (tea #f cup)
+
+(run5 (q)
+  (condi
+    ((== #f q) alwayso)
+    ((== #t q) alwayso)
+    (else #u))
+  (== #t q))
+;; => (#t #t #t #t #t)
+
+(run5 (q)
+  (conde
+    ((== #f q) alwayso)
+    ((== #t q) alwayso)
+    (else #u))
+  (== #t q))
+;; => no value
+
+(run5 (q)
+  (conde
+    (alwayso #s)
+    (else nevero))
+  (== #t q))
+;; => (#t #t #t #t #t)
+
+(run5 (q)
+  (condi
+    (alwayso #s)
+    (else nevero))
+  (== #t q))
+;; => no value
+
+(run1 (q)
+  (all
+    (conde
+      ((== #f q) #s)
+      (else (== #t q)))
+    alwayso)
+  (== #t q))
+;; => no value
+
+(run1 (q)
+  (alli
+    (conde
+      ((== #f q) #s)
+      (else (== #t q)))
+    alwayso)
+  (== #t q))
+;; => (#t)
+
+(run5 (q)
+  (alli
+    (conde
+      ((== #f q) #s)
+      (else (== #t q)))
+    alwayso)
+  (== #t q))
+;; => (#t #t #t #t #t)
+
+(run5 (q)
+  (all
+    (conde
+      (#s #s)
+      (else nevero))
+    alwayso)
+  (== #t q))
+;; => (#t #t #t #t #t)
+
+(run5 (q)
+  (alli
+    (conde
+      (#s #s)
+      (else nevero))
+    alwayso)
+  (== #t q))
+;; => no value
+
+;;;;; Chapter 7: A Bit Too Much
+
+;;; a bit is either 0 or 1
+
+(define bit-xoro
+  (lambda (x y r)
+    (conde
+      ((== 0 x) (== 0 y) (== 0 r))
+      ((== 1 x) (== 0 y) (== 1 r))
+      ((== 0 x) (== 1 y) (== 1 r))
+      ((== 1 x) (== 1 y) (== 0 r))
+      (else #u))))
+
+(run* (s)
+  (fresh (x y)
+    (bit-xoro x y 0)
+    (== (list x y) s)))
+;; => ((0 0) (1 1))
+
+(run* (s)
+  (fresh (x y)
+    (bit-xoro x y 1)
+    (== (list x y) s)))
+;; => ((1 0) (0 1))
+
+(run* (s)
+  (fresh (x y r)
+    (bit-xoro x y r)
+    (== (list x y r) s)))
+;; => ((0 0 0) (1 0 1) (0 1 1) (1 1 0))
+
+(define bit-ando
+  (lambda (x y r)
+    (conde
+      ((== 0 x) (== 0 y) (== 0 r))
+      ((== 1 x) (== 0 y) (== 0 r))
+      ((== 0 x) (== 1 y) (== 0 r))
+      ((== 1 x) (== 1 y) (== 1 r))
+      (else #u))))
+
+(run* (s)
+  (fresh (x y)
+    (bit-ando x y 1)
+    (== (list x y) s)))
+;; => ((1 1))
+
+(define half-addero
+  (lambda (x y r c)
+    (all (bit-xoro x y r)
+         (bit-ando x y c))))
+
+(run* (r) (half-addero 1 1 r 1)) ; => (0)
+
+(run* (s)
+  (fresh (x y r c)
+    (half-addero x y r c)
+    (== (list x y r c) s)))
+;; => ((0 0 0 0) (1 0 1 0) (0 1 1 0) (1 1 0 1))
+
+(define full-addero
+  (lambda (b x y r c)
+    (fresh (w xy wz)
+      (half-addero x y w xy)
+      (half-addero w b r wz)
+      (bit-xoro xy wz c))))
+
+(run* (s)
+  (fresh (r c)
+    (full-addero 0 1 1 r c)
+    (== (list r c) s)))
+;; => ((0 1))
+
+(run* (s)
+  (fresh (r c)
+    (full-addero 1 1 1 r c)
+    (== (list r c) s)))
+;; => ((1 1))
+
+(run* (s)
+  (fresh (b x y r c)
+    (full-addero b x y r c)
+    (== (list b x y r c) s)))
+;; => ((0 0 0 0 0)
+;;     (1 0 0 1 0)
+;;     (0 1 0 1 0)
+;;     (1 1 0 0 1)
+;;     (0 0 1 1 0)
+;;     (1 0 1 0 1)
+;;     (0 1 1 0 1)
+;;     (1 1 1 1 1))
+
+;;; represent numbers using lists of bits
+;;; each number has a unique representation
+;;; bits are ordered by little endian
+;;; there is no zero padding on the right
+;;; the number zero is represented by ()
+;;; all other numbers end with a 1
+
+;;; (0 . n) => 2n
+;;; (1 . n) => 2n + 1
+
+(define build-num
+  (lambda (n)
+    (cond
+      ((and (not zero? n) (even? n))
+       (cons 0 (build-num (/ n 2))))
+      ((odd? n)
+       (cons 1 (build-num (/ (- n 1) 2))))
+      ((zero? n) '()))))
+
+;;; only one of the cond-lines is every true:
+;;; non-overlapping property
+
+(define poso
+  (lambda (n)
+    (fresh (a d)
+      (conso a d n))))
+
+(run* (q) (poso '(0 1 1)) (== #t q)) ; => (#t)
+(run* (q) (poso '(1)) (== #t q))     ; => (#t)
+
+(run3 (s)
+  (fresh (x y r)
+    (addero 0 x y r)
+    (== (list x y r) s)))
+;; => ((_0 () _0)
+;;     (() (_0 . _1) (_0 . _1))
+;;     ((1) (1) (0 1)))
+
+(define addero
+  (lambda (d n m r)
+    (condi
+      ((== 0 d) (== '() m) (== n r))
+      ((== 0 d) (== '() n) (== m r) (poso m))
+      ((== 1 d) (== '() m) (addero 0 n '(1) r))
+      ((== 1 d) (== '() n) (addero 0 '(1) m r))
+      ((== '(1) n) (== '(1) m)
+                   (fresh (a c)
+                     (== (list a c) r)
+                     (full-addero d 1 1 a c)))
+      ((== '(1) n) (gen-addero d n m r))
+      ((== '(1) m) (>1o n) (>1o r) (addero d '(1) n r))
+      ((>1o n) (gen-addero d n m r))
+      (else #u))))
+
+(define gen-addero
+  (lambda (d n m r)
+    (fresh (a b c e x y z)
+      (conso a x n)
+      (conso b y m)
+      (poso y)
+      (conso c z r)
+      (poso z)
+      (alli (full-addero d a b c e)
+            (addero e x y z)))))
+
+(run* (s) (gen-addero 1 '(0 1 1) '(1 1) s)) ; => ((0 1 0 1))
+
+(run* (s)
+  (fresh (x y)
+    (addero 0 x y '(1 0 1))
+    (== (list x y) s)))
+;; => (((1 0 1) ())
+;;     (() (1 0 1))
+;;     ((1) (0 0 1))
+;;     ((0 0 1) (1))
+;;     ((1 1) (0 1))
+;;     ((0 1) (1 1)))
+
+(define +o
+  (lambda (n m k)
+    (addero 0 n m k)))
+
+(run* (s)
+  (fresh (x y)
+    (+o x y '(1 0 1))
+    (== (list x y) s)))
+;; => same as before
+
+(define -o
+  (lambda (n m k)
+    (+o m k n)))
+
+(run* (q) (-o '(0 0 0 1) '(1 0 1) q)) ; => ((1 1))
+(run* (q) (-o '(0 1 1) '(0 1 1) q))   ; => (())
+(run* (q) (-o '(0 1 1) '(0 0 0 1) q)) ; => ()
+
+;;;;; Chapter 8: Just a Bit More
+
+(define *o
+  (lambda (n m p)
+    (condi
+      ((== '() n) (== '() p))
+      ((poso n) (== '() m) (== '() p))
+      ((== '(1) n) (poso m) (== m p))
+      ((>1o n) (== '(1) m) (== n p))
+      ((fresh (x z)
+         (conso 0 x n)
+         (poso x)
+         (conso 0 z p)
+         (poso z)
+         (>1o m)
+         (*o x m z)))
+      ((fresh (x y)
+         (conso 1 x n)
+         (poso x)
+         (conso 1 y m)
+         (poso y)
+         (*o m n p)))
+      ((fresh (x y)
+         (conso 1 x n)
+         (poso x)
+         (conso 1 y m)
+         (poso y)
+         (odd-*o x n m p)))
+      (else #u))))
+
+(define odd-*o
+  (lambda (x n m p)
+    (fresh (q)
+      (bound-*o q p n m)
+      (*o x m q)
+      (+o (cons 0 q) m p))))
+
+(define bound-*o
+  (lambda (q p n m)
+    (conde
+      ((nullo q) (pairo p))
+      (else
+        (fresh (x y z)
+          (cdro q x)
+          (cdro p y)
+          (condi
+            ((nullo n)
+             (cdro m z)
+             (bound-*o x y z '()))
+            (else (cdro n z)
+                  (bound-*o x y z m))))))))
+
+(run2 (t)
+  (fresh (n m)
+    (*o n m '(1))
+    (= (list n m) t)))
+;; => (((1) (1)))
+
+(run* (p)
+  (*o '(1 1 1) '(1 1 1 1 1 1) p))
+;; => ((1 0 0 1 1 1 0 1 1))
+
+(define =lo
+  (lambda (n m)
+    (conde
+      ((== '() n) (== '() m))
+      ((== '(1) n) (== '(1) m))
+      (else
+        (fresh (a x b y)
+          (conso a x n)
+          (poso x)
+          (conso b y m)
+          (poso y)
+          (=lo x y))))))
+
+(run* (t)
+  (fresh (w x y)
+    (=lo `(1 ,w ,x . ,y) '(0 1 1 0 1))
+    (== (list w x y) t)))
+;; => ((_0 _1 (_2 1)))
+
+(run* (b) (=lo '(1) (list b)))              ; => (1)
+(run* (n) (=lo `(1 0 1 . ,n) '(0 1 1 0 1))) ; => ((_0 1))
+
+(run4 (t)
+  (fresh (y z)
+    (=lo (cons 1 y) (cons 1 z))
+    (== (list y z) t)))
+;; => ((() ()) ((1) (1)) ((_0 1) (_1 1)) ((_0 _1 1) (_2 _3 1)))
+
+(run3 (t)
+  (fresh (y z)
+    (=lo (cons 1 y) (cons 0 z))
+    (== (list y z) t)))
+;; => (((1) (1)) ((_0 1) (_1 1)) ((_0 _1 1) (_2 _3 1)))
+
+(run3 (t)
+  (fresh (y z)
+    (=lo (cons 1 y) `(0 1 1 0 1 . ,z))
+    (== (list y z) t)))
+;; => (((_0 _1 _2 1) ()) ((_0 _1 _2 _3 1) (1)) ((_0 _1 _2 _3 _4 1) (_5 1)))
+
+(define <lo
+  (lambda (n m)
+    (conde
+      ((== '() n) (poso m))
+      ((== '(1) n) (>1o m))
+      (else
+        (fresh (a x b y)
+          (conso a x n)
+          (poso x)
+          (conso b y m)
+          (poso y)
+          (<lo x y))))))
+
+(run5 (t)
+  (fresh (y z)
+    (<lo (cons 1 y) `(0 1 1 0 1 . ,z))
+    (== (list y z) t)))
+;; => ((() _0) ((1) _0) ((_0 1) _1) ((_0 _1 1) _2) ((_0 _1 _2 1) (_3 . _4)))
+
+(run1 (n) (<lo n n)) ; => no value
+
+(define <=lo
+  (lambda (n m)
+    (conde
+      ((=lo n m) #s)
+      ((<lo n m) #s)
+      (else #u))))
+
+(run4 (t)
+  (fresh (n m)
+    (<=lo n m)
+    (== (list n m) t)))
+;; => ((() ()) ((1) (1)) ((_0 1) (_1 1)) ((_0 _1 1) (_2 _3 1)))
+
+(run1 (t)
+  (fresh (n m)
+    (<=lo n m)
+    (*o n '(0 1) m)
+    (== (list n m) t)))
+;; => ((() ()))
+;; run2 => no value
+
+(define <=lo
+  (lambda (n m)
+    (condi
+      ((=lo n m) #s)
+      ((<lo n m) #s)
+      (else #u))))
+
+(run5 (t)
+  (fresh (n m)
+    (<=lo n m)
+    (*o n '(0 1) m)
+    (== (list n m) t)))
+;; => ((() ()) ((1) (0 1)) ((0 1) (0 0 1)) ((1 1) (0 1 1)) ((0 0 1) (0 0 0 1)))
+
+(define <o
+  (lambda (n m)
+    (condi
+      ((<lo n m) #s)
+      ((=lo n m)
+       (fresh (x)
+         (poso x)
+         (+o n x m)))
+      (else #u))))
+
+(define <=o
+  (lambda (n m)
+    (condi
+      ((== n m) #s)
+      ((<o n m) #s)
+      (else #u))))
+
+(run* (q) (<o '(1 0 1) '(1 1 1)) (== #t q)) ; => (#t)
+(run* (q) (<o '(1 1 1) '(1 0 1)) (== #t q)) ; => ()
+(run* (q) (<o '(1 0 1) '(1 0 1)) (== #t q)) ; => ()
+
+(run6 (n) (<o n '(1 0 1))) ; => (() (0 0 1) (1) (_0 1))
+(run6 (m) (<o '(1 0 1) m)) ; => ((_0 _1 _2 _3 . _4) (0 1 1) (1 1 1))
+
+(run* (n) (<o n n)) ; => no value
+
+(define ÷o
+  (lambda (n m q r)
+    (condi
+      ((== '() q) (== n r) (<o n m))
+      ((== '(1) q) (== '() r) (== n m) (<o r m))
+      ((<o m n) (<o r m)
+                (fresh (mq)
+                  (<=lo mq n)
+                  (*o m q mq)
+                  (+o mq r n)))
+      (else #u))))
+
+(run* (m)
+  (fresh (r)
+    (÷o '(1 0 1) m '(1 1 1) r)))
+;; => ()
+
+;;; pages 125 to 129 are too complicated
+
+;;;;; Chapter 9: Under the Hood
+
+(define u (var 'u))
+(define v (var 'v))
+(define w (var 'w))
+(define x (var 'x))
+(define y (var 'y))
+(define z (var 'z))
+
+;;; a cons pair is an association
+;;; it has lhs (car) and rhs (cdr)
+;;; the lhs must be a variable
+;;; the rhs can be any value (except the lhs variable)
+
+(rhs `(,z . b))         ; => b
+(rhs `(,z. ,w))         ; => var-x
+(rhs `(,z . (,x e ,y))) ; => (var-x e var-y)
+
+;;; a list of associations is a substitution
+
+(define empty-s '())
+
+(walk z `((,z . a) (,x . ,w) (,y . ,z))) ; => a
+(walk y `((,z . a) (,x . ,w) (,y . ,z))) ; => a
+(walk x `((,z . a) (,x . ,w) (,y . ,z))) ; => var-w
+(walk w `((,z . a) (,x . ,w) (,y . ,z))) ; => var-w
+
+(walk x `((,x . ,y) (,z . ,x) (,y . ,z)))          ; => no value (circular)
+(walk w `((,x . ,y) (,w . b) (,z . ,x) (,y . ,z))) ; => b
+(walk u `((,x . b) (,w . (,x e ,x)) (,u . ,w)))    ; => (var-x e var-x)
+
+(define walk
+  (lambda (v s)
+    (cond
+      ((var? v)
+       (let ((a (assq v s)))
+         (cond
+           (a (walk (rhs a) s))
+           (else v))))
+      (else v))))
+
+(define ext-s
+  (lambda (x v s)
+    (cons (cons x v) s)))
+
+(walk x (ext-s x y `((,z . ,x) (,y . ,z)))) ; => no value
+
+(walk y `((,x . e)))                         ; => var-y
+(walk y (ext-s y x `((,x . e))))             ; => e
+(walk x `((,y . ,z) (,x . ,y)))              ; => var-z
+(walk x (ext-s z 'b `((,y . ,z) (,x . ,y)))) ; => b
+(walk x (ext-s z w `((,y . ,z) (,x . ,y))))  ; => var-w
+
+(unify v w s) ; => either #f or new substitution
+
+(define unify
+  (lambda (v w s)
+    (let ((v (walk v s))
+          (w (walk w s)))
+      (cond
+        ((eq? v w) s)
+        ((var? v) (ext-s v w s))
+        ((var? w) (ext-s w v s))
+        ((and (pair? v) (pair? w))
+         (let ((a (unify (car v) (car w) s)))
+           (cond
+             (a (unify (cdr v) (cdr w) a))
+             (else #f))))
+        ((equal? v w) s)
+        (else #f)))))
+
+(walk* x `((,y . (a ,z c)) (,x . ,y) (,z . a)))  ; => (a a c)
+(walk* x `((,y . (,z ,w c)) (,x . ,y) (,z . a))) ; => (a var-w c)
+
+(walk* y `((,y . (,w ,z c)) (,v . b) (,x . ,v) (,z . ,x))) ; => (var-w b c)
+
+(define walk*
+  (lambda (v s)
+    (let ((v (walk v s)))
+      (cond
+        ((var? v) v)
+        ((pair? v)
+         (cons (walk* (car v) s)
+               (walk* (cdr v) s)))
+        (else v)))))
+
+(define reify-s
+  (lambda (v s)
+    (let ((v (walk v s)))
+      (cond
+        ((var? v)
+         (ext-s v (reify-name (size-s s)) s))
+        ((pair? v) (reify-s (cdr v)
+                            (reify-s (car v) s)))
+        (else s)))))
+
+(define reify-name
+  (lambda (n)
+    (string->symbol
+      (string-append "_" "." (number->string n)))))
+
+(let ((r (list w x y)))
+  (walk* r (reify-s r empty-s)))
+;; => (_0 _1 _2)
+
+(let ((r (walk* (list x y z) empty-s)))
+  (walk* r (reify-s r empty-s)))
+;; => (_0 _1 _2)
+
+(let ((r `(,u (,v (,w ,x) ,y) ,x)))
+  (walk* r (reify-s r empty-s)))
+;; => (_0 (_1 (_2 _3) _4) _3)
+
+(let ((s `((,y . (,z ,w c ,w)) (,x . ,y) (,z . a))))
+  (let ((r (walk* x s)))
+    (walk* r (reify-s r empty-s))))
+;; => (a _0 c _0)
+
+(define reify
+  (lambda (v)
+    (walk* v (reify-s v empty-s))))
+
+(let ((s `((,y . (,z ,w c ,w)) (,x . ,y) (,z . a))))
+  (reify (walk* x s)))
+;; => (a _0 c _0)
+
+(define ext-sv
+  (lambda (x v s)
+    (cond
+      ((occursv x v s) #f)
+      (else (ext-s x v s)))))
+
+(define occursv
+  (lambda (x v s)
+    (let ((v (walk v s)))
+      (cond
+        ((var? v) (eq? v x))
+        ((pair? v)
+         (or (occursv x (car v) s)
+             (occursv x (cdr v) s)))
+        (else #f)))))
+
+(define unifyv
+  (lambda (v w s)
+    (let ((v (walk v s))
+          (w (walk w s)))
+      (cond
+        ((eq? v w) s)
+        ((var? v) (ext-sv v w s))
+        ((var? w) (ext-sv w v s))
+        ((and (pair? v) (pair? w))
+         (let ((a (unifyv (car v) (car w) s)))
+           (cond
+             (a (unifyv (cdr v) (cdr w) a))
+             (else #f))))
+        ((equal? v w) s)
+        (else #f)))))
+
+(run1 (x) (== (list x) x)) ; => no value
+
+(run1 (q)
+  (fresh (x)
+    (== (list x) x)
+    (== #t q)))
+;; => (#t)
+
+(run1 (q)
+  (fresh (x y)
+    (== (list x) y)
+    (== (list y) x)
+    (== #t q)))
+;; => (#t)
+
+(run1 (x) (==v (list x) x)) ; => ()
+
+(run1 (x)
+  (fresh (y z)
+    (== x z)
+    (== `(a b ,z) y)
+    (== x y)))
+;; => no value
+
+(run1 (x)
+  (fresh (y z)
+    (== x z)
+    (== `(a b ,z) y)
+    (==v x y)))
+;; => ()
+
+;;;;; Chapter 10: Thin Ice
+
+;;; conda is like conde, but only one line can succeed
+
+(run* (x)
+  (conda
+    ((== 'olive x) #s)
+    ((== 'oil x) #s)
+    (else #u)))
+;; => (olive)
+
+(run* (x)
+  (conda
+    ((== 'virgin x) #u)
+    ((== 'olive x) #s)
+    ((== 'oil x) #s)
+    (else #u)))
+;; => ()
+
+(run* (q)
+  (fresh (x y)
+    (== 'split x)
+    (== 'pea y)
+    (conda
+      ((== 'split x) (== x y))
+      (else #s)))
+  (== #t q))
+;; => ()
+
+(run* (q)
+  (fresh (x y)
+    (== 'split x)
+    (== 'pea y)
+    (conda
+      ((== x y) (== 'split x))
+      (else #s)))
+  (== #t q))
+;; => (#t)
+
+(define not-pastao
+  (lambda (x)
+    (conda
+      ((== 'pasta x) #u)
+      (else #s))))
+
+(run* (x)
+  (conda
+    ((not-pastao x) #u)
+    (else (== 'spaghetti x))))
+;; => (spaghetti)
+
+(run* (x)
+  (== 'spaghetti x)
+  (conda
+    ((not-pastao x) #u)
+    (else (== 'spaghetti x))))
+;; => ()
+
+(run* (q)
+  (conda
+    (alwayso #s)
+    (else #u))
+  (== #t q))
+;; => no value
+
+;;; condu is like conda, but the successful question can only succeed once
+
+(run* (q)
+  (condu
+    (alwayso #s)
+    (else #u))
+  (== #t q))
+;; => (#t)
+
+(run* (q)
+  (condu
+    (#s alwayso)
+    (else #u))
+  (== #t q))
+;; => no value
+
+(run1 (q)
+  (conda
+    (alwayso #s)
+    (else #u))
+  #u
+  (== #t q))
+;; => no value
+
+(run1 (q)
+  (condu
+    (alwayso #s)
+    (else #u))
+  #u
+  (== #t q))
+;; => ()
+
+(define onceo
+  (lambda (g)
+    (condu
+      (g #s)
+      (else #u))))
+
+(run* (x) (onceo (teacupo x)))      ; => (tea)
+(run1 (q) (onceo (salo nevero)) #u) ; => ()
+
+(run* (r)
+  (conde
+    ((teacupo r) #s)
+    ((== #f r) #s)
+    (else #u)))
+;; => (tea cup #f)
+
+(run* (r)
+  (conda
+    ((teacupo r) #s)
+    ((== #f r) #s)
+    (else #u)))
+;; => (tea cup)
+
+(run* (r)
+  (== #f r)
+  (conda
+    ((teacupo r) #s)
+    ((== #f r) #s)
+    (else #u)))
+;; => (#f)
+
+(run* (r)
+  (== #f r)
+  (condu
+    ((teacupo r) #s)
+    ((== #f r) #s)
+    (else #u)))
+;; => (#f)
+
+(define bumpo
+  (lambda (n x)
+    (conde
+      ((== n x) #s)
+      (else
+        (fresh (m)
+          (-o n '(1) m)
+          (bumpo m x))))))
+
+(run* (x)
+  (bumpo '(1 1 1) x))
+;; => ((1 1 1) (0 1 1) (1 0 1) (0 0 1) (1 1) (0 1) (1) ())
+
+(define gen&testo
+  (lambda (op i j k)
+    (onceo
+      (fresh (x y z)
+        (op x y z)
+        (== i x)
+        (== j y)
+        (== k z)))))
+
+(run* (q)
+  (gen&testo +o '(0 0 1) '(1 1) '(1 1 1))
+  (== #t q))
+;; => (#t)
+
+(run1 (q)
+  (gen&testo +o '(0 0 1) '(1 1) '(0 1 1)))
+;; => no value
+
+(define enumerateo
+  (lambda (op r n)
+    (fresh (i j k)
+      (bumpo n i)
+      (bumpo n j)
+      (op i j k)
+      (gen&testo op i j k)
+      (== (list i j k) r))))
+
+(run* (s)
+  (enumerateo +o s '(1 1)))
+;; => long list
+
+(run1 (s)
+  (enumerateo +o s '(1 1 1)))
+;; => (((1 1 1) (1 1 1) (0 1 1 1)))
