@@ -52,7 +52,7 @@
 ;; 1. bodye must contain the conclusion (equal p q) or (equal q p),
 ;; 2. the conclusion must not be found in the question of any "if" or in the
 ;;    argument of any function application,
-;; 3. and if the conclusion ca nbe found in an "if" answer (respectively else),
+;; 3. and if the conclusion can be found in an "if" answer (respectively else),
 ;;    then the focus must be found in an "if" answer (respectively else) with
 ;;    the same question.
 
@@ -92,3 +92,69 @@
   (if x 't (equal (if x y z) z)))
 
 ;;;;; Chapter 3: What's in a Name?
+
+(defun pair (x y)
+  (cons x (cons y '())))
+(defun first-of (x)
+  (car x))
+(defun second-of (x)
+  (car (cdr x)))
+
+;;; Unproven claim (not a theorem yet).
+(dethm first-of-pair (a b)
+  (equal (first-of (pair a b)) a))
+
+;;; The Law of Defun (initial)
+;; Given the non-recursive function (defun name (x1 ... xn) body),
+;; (name e1 ... en) = body where x1 is e1, ..., xn is en.
+
+(equal (first-of (pair a b)) a)
+;; => (equal (first-of (cons a (cons b '()))) a)
+;; => (equal (car (cons a (cons b '()))) a)
+;; => (equal a a)
+;; => 't
+
+;;; Unproven claim (not a theorem yet).
+(dethm second-of-pair (a b)
+  (equal (second-of (pair a b)) b))
+
+(equal (second-of (pair a b)) b)
+;; => (equal (car (cdr (pair a b))) b)
+;; => (equal (car (cdr (cons a (cons b '())))) b)
+;; => (equal (car (cons b '())) b)
+;; => (equal b b)
+;; => 't
+
+(defun in-pair? (xs)
+  (if (equal (first-of xs) '?)
+    't
+    (equal (second-of xs) '?)))
+
+(dethm in-first-of-pair (b)
+  (equal (in-pair? (pair '? b)) 't))
+
+(equal (in-pair? (pair '? b))
+       't))
+;; => (equal (in-pair? (cons '? (cons b '())))
+;;           't)
+;; => (equal (if (equal (first-of (cons '? (cons b '()))) '?)
+;;             't
+;;             (equal (second-of (cons '? (cons b '()))) '?))
+;;           't)
+;; => (equal (if (equal '? '?)
+;;             't
+;;             (equal (second-of (cons '? (cons b '()))) '?))
+;;           't)
+;; => (equal (if 't
+;;             't
+;;             (equal (second-of (cons '? (cons b '()))) '?))
+;;           't)
+;; => (equal 't 't)
+;; => 't
+
+;;; Insight: Skip Irrelevant Expressions
+;; Rewriting a claim to 't does not have to go in any particular order. Some
+;; parts of the expression might be skipped entirely. For example, if-same can
+;; simplify many if expressions to 't regardless of the if question.
+
+;;;;; Chapter 4: Part of This Total Breakfast
